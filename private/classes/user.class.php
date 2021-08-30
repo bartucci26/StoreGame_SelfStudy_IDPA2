@@ -1,0 +1,114 @@
+<?php 
+
+class User extends DatabaseObject {
+
+    static protected $table_name = 'users';
+    static protected $columns = ['id','username','first_name', 'last_name','email', 'hashed_password', 'streetname'];
+
+
+    public $id;
+    public $username;
+    public $first_name;
+    public $last_name;
+    public $email;
+    protected $hashed_password;
+    public $password;
+    public $confirm_pass;
+    public $streetname;
+    protected $password_required = true;
+
+    public function __construct($args=[]) {
+        $this->username=$args['username'] ?? '';    
+        $this->first_name=$args['first_name'] ?? '';    
+        $this->last_name=$args['last_name'] ?? '';    
+        $this->email=$args['email'] ?? '';        
+        $this->password=$args['password'] ?? '';    
+        $this->confirm_pass=$args['confirm_pass'] ?? '';    
+        $this->streetname=$args['streetname'] ?? '';    
+    }
+
+    public function full_name() {
+        return $this->first_name . " " . $this->last_name;
+      }
+
+    protected function set_hash_pass() { //just being called internally, doesn't need to be public
+        $this->hashed_password = password_hash($this->password, PASSWORD_BCRYPT); //set value to encrypted password
+
+    }
+
+    public function verify_password($password) {
+       return password_verify($password, $this->hashed_password);
+    }
+    //overrite the create in function.php to instantiate the parent version
+public function create() {
+         $this->set_hash_pass();
+        return parent::create(); //return the value true or false
+    }
+    protected function update() {
+        $this->set_hash_pass();
+        return parent::update();
+    }
+
+    protected function validate() { //because is calling in the class you can reference in the object with $this->
+        $this->errors = [];
+      
+        if(is_blank($this->first_name)) {
+          $this->errors[] = "First name cannot be blank.";
+        } elseif (!has_length($this->first_name, array('min' => 2, 'max' => 255))) {
+          $this->errors[] = "First name must be between 2 and 255 characters.";
+        }
+      
+        if(is_blank($this->last_name)) {
+          $this->errors[] = "Last name cannot be blank.";
+        } elseif (!has_length($this->last_name, array('min' => 2, 'max' => 255))) {
+          $this->errors[] = "Last name must be between 2 and 255 characters.";
+        }
+      
+        if(is_blank($this->email)) {
+          $this->errors[] = "Email cannot be blank.";
+        } elseif (!has_length($this->email, array('max' => 255))) {
+          $this->errors[] = "Last name must be less than 255 characters.";
+        } elseif (!has_valid_email_format($this->email)) {
+          $this->errors[] = "Email must be a valid format.";
+        }
+      
+        if(is_blank($this->username)) {
+          $this->errors[] = "Username cannot be blank.";
+        } elseif (!has_length($this->username, array('min' => 8, 'max' => 255))) {
+          $this->errors[] = "Username must be between 8 and 255 characters.";
+        }
+      
+        if($this->password_required) {
+            if(is_blank($this->password)) {
+              $this->errors[] = "Password cannot be blank.";
+            } elseif (!has_length($this->password, array('min' => 12))) {
+              $this->errors[] = "Password must contain 12 or more characters";
+            } elseif (!preg_match('/[a-z]/', $this->password)) {
+              $this->errors[] = "Password must contain at least 1 lowercase letter";
+            } elseif (!preg_match('/[0-9]/', $this->password)) {
+              $this->errors[] = "Password must contain at least 1 number";
+            } 
+      
+            if(is_blank($this->confirm_pass)) {
+              $this->errors[] = "Confirm password cannot be blank.";
+            } elseif ($this->password !== $this->confirm_pass) {
+              $this->errors[] = "Password and confirm password must match.";
+            }
+          }
+      
+          return $this->errors;
+        }
+      
+        static public function find_by_username($username) {
+          $sql = "SELECT * FROM " . static::$table_name . " ";
+          $sql .= "WHERE username='" . self::$database->escape_string($username) . "'";
+          $obj_array = static::find_by_sql($sql);
+          if(!empty($obj_array)) {
+            return array_shift($obj_array);
+          } else {
+            return false;
+          }
+        }
+      
+      }
+?>
